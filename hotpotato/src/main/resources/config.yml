@@ -1,0 +1,29 @@
+# HotPotato Plugin Configuration
+
+# Maximum distance (in blocks) between players to trigger the event
+distance: 200
+
+# Minimum Y level required for players to be eligible
+min-y: 10
+
+# Timer duration in seconds (7 minutes = 420 seconds)
+timer-duration: 420
+
+# Message displayed before the player dies
+predeath-message: "The timer on the hot potato reached zero while {player} was holding it."
+
+# Whether to reset the timer when potato is transferred
+reset-timer-on-transfer: false
+
+# Additional time to add to timer when transferred (in seconds), 0 to disable
+increase-timer-on-transfer: 0
+
+# Distance for glow effect on nearby players
+glow-distance: 500
+
+# Minimum Y level for glow effect
+glow-min-y: 10
+
+# Random chance (0-100) for potato to spawn spontaneously per tick check
+# Set to 0 to disable random spawn, or use command to trigger
+random-chance: 0

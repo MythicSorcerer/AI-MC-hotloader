@@ -1,0 +1,19 @@
+name: Example
+main: net.azox.example.Example
+version: 1.0.0
+api-version: "1.21"
+description: A hot-reloadable example plugin
+author: Azox
+website: https://azox.net
+
+commands:
+  example:
+    description: Main Example command
+    usage: /<command>
+    permission: example.use
+    permission-message: "§cYou don't have permission."
+
+permissions:
+  example.use:
+    description: Allows use of the /example command
+    default: op
