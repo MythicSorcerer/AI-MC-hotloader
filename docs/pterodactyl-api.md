@@ -119,7 +119,8 @@ cd /home/xt/isk-ai
 ./pteroctl getlog                   # Get latest.log contents
 
 # List servers
-./pteroctl servers                 # List available servers
+./pteroctl servers                 # List available servers (local list)
+./pteroctl list                    # Requires application key (ptla_...)
 ```
 
 ---
