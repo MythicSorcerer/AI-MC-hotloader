@@ -17,8 +17,8 @@ Goal → Copy Example → Edit Code → Compile → Debug/Recompile → Upload �
 ### 1. ASK: Which server?
 
 **Always ask the user which server to use** before starting:
-- `97f5b764` - plugin testing (for testing new plugins)
-- `e8337f4a` - azox (main server)
+- `9323a5c9` - isk (main server)
+- Check available: `./pteroctl servers`
 
 ### 2. Copy Example Template
 
@@ -80,6 +80,17 @@ Only if user says to announce:
 
 API keys and settings are in `.env` (gitignored). The `pteroctl` script reads from it.
 
+**Important:** Always verify environment variables are loaded correctly:
+```bash
+# Check if variables are set
+echo "API Key: $PTERO_API_KEY"
+echo "Panel URL: $PTERO_PANEL_URL"
+echo "Default Server: $PTERO_DEFAULT_SERVER"
+
+# If empty, source the .env file explicitly:
+export $(cat .env | xargs)
+```
+
 ## Server Notes
 
 - **NEVER stop/restart server unless ABSOLUTELY needed** - disrupts all players
@@ -97,12 +108,12 @@ After loading, run the plugin's command to verify:
 
 User: "implement a plugin that makes all players invisible"
 
-1. Ask server: plugin testing (97f5b764)
+1. Ask server: isk (9323a5c9)
 2. `cp -r example invisible`
 3. Edit code to add PlayerVisibilityListener
 4. `mvn clean package`
-5. `./pteroctl -s 97f5b764 upload target/invisible-1.0.0.jar /plugins`
-6. `./pteroctl -s 97f5b764 cmd "/plm load invisible"`
+5. `./pteroctl -s 9323a5c9 upload target/invisible-1.0.0.jar /plugins`
+6. `./pteroctl -s 9323a5c9 cmd "/plm load invisible"`
 7. `/invisible` to test
 
 ## Error Handling
@@ -112,3 +123,43 @@ If plugin fails to load:
 - Fix code
 - Recompile
 - Upload and load again
+
+## Troubleshooting 404 Errors
+
+If you encounter 404 errors when using pteroctl:
+
+1. **Verify environment variables are loaded:**
+   ```bash
+   echo "API Key: $PTERO_API_KEY"
+   echo "Panel URL: $PTERO_PANEL_URL"
+   ```
+   If these show empty values, explicitly source the .env file:
+   ```bash
+   export $(cat .env | xargs)
+   ```
+
+2. **Test API connectivity directly:**
+   ```bash
+   curl -v -H "Authorization: Bearer $PTERO_API_KEY" \
+        -H "Content-Type: application/json" \
+        "$PTERO_PANEL_URL/api/application/servers"
+   ```
+   Check that you get a valid JSON response, not an HTML error page.
+
+3. **Check server-specific endpoints:**
+   ```bash
+   # Replace SERVER_ID with your actual server ID
+   curl -v -H "Authorization: Bearer $PTERO_API_KEY" \
+        -H "Content-Type: application/json" \
+        "$PTERO_PANEL_URL/api/client/servers/SERVER_ID/resources"
+   ```
+
+4. **Use explicit variable passing when needed:**
+   ```bash
+   PTERO_API_KEY=your_key PTERO_PANEL_URL=https://panel.azox.net ./pteroctl status
+   ```
+
+5. **Verify the server ID is correct:**
+   - Run `./pteroctl servers` to see available servers
+   - Check that the ID you're using matches one listed
+   - The default server ID is in `.env` as `PTERO_DEFAULT_SERVER`

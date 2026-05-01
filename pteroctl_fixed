@@ -4,9 +4,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load environment variables from .env
 if [ -f "$SCRIPT_DIR/.env" ]; then
-    set -a
-    source "$SCRIPT_DIR/.env"
-    set +a
+    export $(cat "$SCRIPT_DIR/.env" | xargs)
 fi
 
 API_KEY="${PTERO_API_KEY:-}"
