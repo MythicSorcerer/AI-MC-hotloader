@@ -55,6 +55,9 @@ while getopts "s:h" opt; do
             echo "  upload <file> --dir d - Upload file to directory d"
             echo "  logs, log             - List recent log files"
             echo "  getlog, log [file]   - Get log contents (default: latest.log)"
+            echo "  watch               - Watch live logs and send commands (Ctrl+C to exit)"
+            echo "  watch --delay 2     - Set poll interval to 2 seconds"
+            echo "  watch --lines 100   - Show 100 initial lines at start"
             echo ""
             echo "Examples:"
             echo "  $0 -s e8337f4a stat    # Check azox server"
@@ -336,6 +339,68 @@ for f in files[:5]:
         URL=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['attributes']['url'])")
         curl -sL -o "$(basename "$FILE")" "$URL"
         echo "Downloaded: $FILE"
+        ;;
+    watch)
+        require_server
+        POLL_INTERVAL=1
+        INITIAL_LINES=50
+
+        while [ "$#" -gt 0 ]; do
+            case "$1" in
+                --delay|-d)
+                    shift
+                    POLL_INTERVAL="${1:-1}"
+                    ;;
+                --lines|-l)
+                    shift
+                    INITIAL_LINES="${1:-50}"
+                    ;;
+                *)
+                    ;;
+            esac
+            shift || true
+        done
+
+        LAST_SIZE=0
+
+        echo "=== Watching server: $SERVER ==="
+        echo "=== Press Ctrl+C to exit ==="
+        echo ""
+
+        _fetch_log() {
+            curl -s -H "Authorization: Bearer $API_KEY" \
+                -H "Accept: application/octet-stream" \
+                "$PANEL_URL/api/client/servers/$SERVER/files/download?file=/logs/latest.log" | python3 -c "
+import json,sys,urllib.request
+data=json.load(sys.stdin)
+url=data['attributes']['url']
+print(urllib.request.urlopen(url).read().decode('utf-8'))"
+        }
+
+        INITIAL=$(_fetch_log | tail -n "$INITIAL_LINES")
+        echo "$INITIAL"
+        LAST_SIZE=$(echo "$INITIAL" | wc -c)
+
+        while true; do
+            sleep "$POLL_INTERVAL" || true
+
+            LOG_CONTENT=$(_fetch_log)
+            NEW_SIZE=$(echo "$LOG_CONTENT" | wc -c)
+
+            if [ "$NEW_SIZE" -gt "$LAST_SIZE" ]; then
+                echo "$LOG_CONTENT" | tail -c +"$LAST_SIZE"
+                LAST_SIZE="$NEW_SIZE"
+            fi
+
+            if read -t 1 -p "> " cmd 2>/dev/null; then
+                if [ -n "$cmd" ]; then
+                    curl -s -X POST -H "Authorization: Bearer $API_KEY" \
+                        -H "Content-Type: application/json" \
+                        -d "{\"command\":\"$cmd\"}" \
+                        "$PANEL_URL/api/client/servers/$SERVER/command" >/dev/null
+                fi
+            fi
+        done
         ;;
     servers)
         echo "Available servers:"
