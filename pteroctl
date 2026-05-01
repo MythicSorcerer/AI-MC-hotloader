@@ -70,18 +70,48 @@ print(f\"State: {data['attributes']['current_state']}\")"
         echo "Sent: $COMMAND"
         ;;
     upload)
-        FILE="$2"
-        DIR="${3:-/}"
-        
+        shift
+        FILE="$1"
+        shift || true
+
+        DIR_FLAG=""
+        POSITIONAL_DIR=""
+
+        while [ "$#" -gt 0 ]; do
+            case "$1" in
+                -d|--dir)
+                    shift
+                    if [ -z "${1:-}" ]; then
+                        echo "Error: --dir requires a value"
+                        exit 1
+                    fi
+                    DIR_FLAG="$1"
+                    ;;
+                *)
+                    if [ -z "$POSITIONAL_DIR" ]; then
+                        POSITIONAL_DIR="$1"
+                    fi
+                    ;;
+            esac
+            shift || true
+        done
+
+        DIR="${DIR_FLAG:-$POSITIONAL_DIR}"
+
+        if [ -z "$DIR" ]; then
+            DIR="/plugins"
+            echo "Directory not given; defaulting to /plugins. Use --dir to select target directory."
+        fi
+
         if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
             echo "Error: File not found: $FILE"
             exit 1
         fi
-        
+
         UPLOAD_URL=$(curl -s -H "Authorization: Bearer $API_KEY" \
             -H "Accept: application/json" \
             "$PANEL_URL/api/client/servers/$SERVER/files/upload?directory=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("'"$DIR"'"))')" | python3 -c "import json,sys; print(json.load(sys.stdin)['attributes']['url'])")
-        
+
         curl -X POST "$UPLOAD_URL&directory=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("'"$DIR"'"))')" \
             -F "files=@$FILE"
         echo "Uploaded: $FILE to $SERVER/$DIR"
