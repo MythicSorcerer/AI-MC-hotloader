@@ -85,7 +85,48 @@ print(f\"State: {data['attributes']['current_state']}\")"
     cmd)
         require_server
         shift
-        COMMAND="$*"
+        LOGS_ENABLED=1
+        LOG_LIMIT=200
+        RAW_ARGS=("$@")
+        PARSED_ARGS=()
+        while [ "$#" -gt 0 ]; do
+            case "$1" in
+                --no-logs)
+                    LOGS_ENABLED=0
+                    shift
+                    ;;
+                --logs)
+                    shift
+                    if [ -z "${1:-}" ]; then
+                        echo "Error: --logs requires a value"
+                        exit 1
+                    fi
+                    if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+                        echo "Error: --logs requires a numeric value"
+                        exit 1
+                    fi
+                    LOG_LIMIT="$1"
+                    LOGS_ENABLED=1
+                    shift
+                    ;;
+                --)
+                    shift
+                    while [ "$#" -gt 0 ]; do
+                        PARSED_ARGS+=("$1")
+                        shift
+                    done
+                    ;;
+                *)
+                    PARSED_ARGS+=("$1")
+                    shift
+                    ;;
+            esac
+        done
+        if [ "${#PARSED_ARGS[@]}" -eq 0 ]; then
+            PARSED_ARGS=("${RAW_ARGS[@]}")
+        fi
+        COMMAND="${PARSED_ARGS[*]}"
+        CMD_TS="${PTERO_CMD_TS:-$(date +%H:%M:%S)}"
         RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $API_KEY" \
             -H "Content-Type: application/json" \
             -X POST -d "{\"command\":\"$COMMAND\"}" \
@@ -100,6 +141,76 @@ print(f\"State: {data['attributes']['current_state']}\")"
             exit 1
         fi
         echo "Sent: $COMMAND"
+        if [ "$LOGS_ENABLED" -eq 1 ]; then
+            LOG_RESPONSE=$(curl -s -H "Authorization: Bearer $API_KEY" \
+                -H "Accept: application/octet-stream" \
+                "$PANEL_URL/api/client/servers/$SERVER/files/download?file=/logs/latest.log")
+            CMD_TS="$CMD_TS" LOG_LIMIT="$LOG_LIMIT" LOG_RESPONSE="$LOG_RESPONSE" python3 - <<'PY'
+import json
+import os
+import re
+import sys
+import urllib.request
+
+cmd_ts = os.environ.get("CMD_TS", "")
+limit_raw = os.environ.get("LOG_LIMIT", "200")
+try:
+    log_limit = int(limit_raw)
+except ValueError:
+    log_limit = 200
+
+def parse_ts(value):
+    parts = value.split(":")
+    if len(parts) != 3:
+        return None
+    try:
+        h, m, s = (int(p) for p in parts)
+    except ValueError:
+        return None
+    if h < 0 or h > 23 or m < 0 or m > 59 or s < 0 or s > 59:
+        return None
+    return h * 3600 + m * 60 + s
+
+cmd_sec = parse_ts(cmd_ts)
+if cmd_sec is None:
+    cmd_sec = 0
+timestamp_re = re.compile(r"^\[(\d{2}):(\d{2}):(\d{2})\]")
+
+payload = os.environ.get("LOG_RESPONSE", "")
+if not payload:
+    raise SystemExit(0)
+try:
+    data = json.loads(payload)
+except json.JSONDecodeError:
+    raise SystemExit(0)
+url = data.get("attributes", {}).get("url", "")
+if not url:
+    raise SystemExit(0)
+
+content = urllib.request.urlopen(url).read().decode("utf-8", errors="replace")
+lines = content.splitlines()
+filtered = []
+for line in lines:
+    match = timestamp_re.match(line)
+    if match:
+        line_sec = int(match.group(1)) * 3600 + int(match.group(2)) * 60 + int(match.group(3))
+        if cmd_sec is None or line_sec >= cmd_sec:
+            filtered.append(line)
+
+if log_limit < 0:
+    log_limit = 0
+
+if log_limit == 0:
+    print("(Output cut off at 0 lines)")
+elif log_limit and len(filtered) > log_limit:
+    for line in filtered[:log_limit]:
+        print(line)
+    print(f"(Output cut off at {log_limit} lines)")
+else:
+    for line in filtered:
+        print(line)
+PY
+        fi
         ;;
     upload)
         require_server
