@@ -361,7 +361,7 @@ for f in files[:5]:
             shift || true
         done
 
-        LAST_SIZE=0
+        LAST_LINE=0
 
         echo "=== Watching server: $SERVER ==="
         echo "=== Press Ctrl+C to exit ==="
@@ -377,27 +377,36 @@ url=data['attributes']['url']
 print(urllib.request.urlopen(url).read().decode('utf-8'))"
         }
 
+        _send_cmd() {
+            local cmd="$1"
+            local json_payload
+            json_payload=$(python3 -c "import json,sys; print(json.dumps({\"command\": sys.argv[1]}))" "$cmd")
+            curl -s -X POST -H "Authorization: Bearer $API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "$json_payload" \
+                "$PANEL_URL/api/client/servers/$SERVER/command" >/dev/null
+        }
+
         INITIAL=$(_fetch_log | tail -n "$INITIAL_LINES")
         echo "$INITIAL"
-        LAST_SIZE=$(echo "$INITIAL" | wc -c)
+        LAST_LINE=$(_fetch_log | wc -l)
 
         while true; do
             sleep "$POLL_INTERVAL" || true
 
             LOG_CONTENT=$(_fetch_log)
-            NEW_SIZE=$(echo "$LOG_CONTENT" | wc -c)
+            TOTAL_LINES=$(echo "$LOG_CONTENT" | wc -l)
 
-            if [ "$NEW_SIZE" -gt "$LAST_SIZE" ]; then
-                echo "$LOG_CONTENT" | tail -c +"$LAST_SIZE"
-                LAST_SIZE="$NEW_SIZE"
+            if [ "$TOTAL_LINES" -gt "$LAST_LINE" ]; then
+                echo "$LOG_CONTENT" | tail -n +$((LAST_LINE + 1))
+                LAST_LINE="$TOTAL_LINES"
+            elif [ "$TOTAL_LINES" -lt "$LAST_LINE" ]; then
+                LAST_LINE=0
             fi
 
             if read -t 1 -p "> " cmd 2>/dev/null; then
                 if [ -n "$cmd" ]; then
-                    curl -s -X POST -H "Authorization: Bearer $API_KEY" \
-                        -H "Content-Type: application/json" \
-                        -d "{\"command\":\"$cmd\"}" \
-                        "$PANEL_URL/api/client/servers/$SERVER/command" >/dev/null
+                    _send_cmd "$cmd"
                 fi
             fi
         done
