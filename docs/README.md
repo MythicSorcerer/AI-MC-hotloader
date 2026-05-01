@@ -13,7 +13,8 @@ cd /home/xt/isk-ai
 ./pteroctl -s 9323a5c9 cmd <cmd>  # Run command
 
 # Upload plugin
-./pteroctl upload myplugin.jar /plugins
+./pteroctl upload myplugin.jar  # defaults to /plugins
+./pteroctl upload myplugin.jar --dir /plugins
 ```
 
 ## Plugins (15 installed)

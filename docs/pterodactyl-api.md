@@ -114,7 +114,8 @@ cd /home/xt/isk-ai
 ./pteroctl -s 9323a5c9 cmd <command>    # Run console command
 
 # File operations
-./pteroctl upload <file> [dir]       # Upload file to server
+./pteroctl upload <file> [dir]       # Defaults to /plugins
+./pteroctl upload <file> --dir <dir> # Explicit directory
 ./pteroctl getlog                   # Get latest.log contents
 
 # List servers

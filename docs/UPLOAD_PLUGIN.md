@@ -8,7 +8,8 @@ Put the `.jar` file in `/home/xt/isk-ai/plugins/`
 ### 2. Upload to server
 ```bash
 cd /home/xt/isk-ai
-./pteroctl -s 9323a5c9 upload plugins/myplugin.jar /plugins
+./pteroctl -s 9323a5c9 upload plugins/myplugin.jar  # defaults to /plugins
+./pteroctl -s 9323a5c9 upload plugins/myplugin.jar --dir /plugins
 ```
 
 ### 3. Load it (no restart needed)
@@ -28,7 +29,8 @@ cd /home/xt/isk-ai
 ### 1. Upload new jar
 ```bash
 cd /home/xt/isk-ai
-./pteroctl -s 9323a5c9 upload plugins/myplugin.jar /plugins
+./pteroctl -s 9323a5c9 upload plugins/myplugin.jar  # defaults to /plugins
+./pteroctl -s 9323a5c9 upload plugins/myplugin.jar --dir /plugins
 ```
 
 ### 2. Reload it
@@ -94,7 +96,7 @@ curl -s -X POST \
 
 | Task | Command |
 |------|---------|
-| Upload | `./pteroctl upload name.jar /plugins` |
+| Upload | `./pteroctl upload name.jar` |
 | Hotload | `./pteroctl cmd "/plm load name"` |
 | Restart | `./pteroctl restart` |
 | Check logs | `./pteroctl getlog` |
