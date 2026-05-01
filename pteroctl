@@ -32,11 +32,38 @@ require_server() {
     fi
 }
 
-# Parse -s flag for server selection
+# Parse -s and -h flags for server selection and help
 SERVER="$DEFAULT_SERVER"
-while getopts "s:" opt; do
+while getopts "s:h" opt; do
     case $opt in
         s) SERVER="$OPTARG" ;;
+        h)
+            echo "Usage: $0 [options] <command> [args]"
+            echo ""
+            echo "Options:"
+            echo "  -s <uuid>  Select server (default: $DEFAULT_SERVER)"
+            echo "  -h         Show this help"
+            echo ""
+            echo "Commands:"
+            echo "  servers                - List available servers"
+            echo "  status, stat, running - Show server status"
+            echo "  start                 - Start server"
+            echo "  stop                  - Stop server"
+            echo "  restart               - Restart server"
+            echo "  cmd, run <cmd>        - Run console command"
+            echo "  upload <file> [dir]   - Upload file (defaults to /plugins)"
+            echo "  upload <file> --dir d - Upload file to directory d"
+            echo "  logs, log             - List recent log files"
+            echo "  getlog, log [file]   - Get log contents (default: latest.log)"
+            echo ""
+            echo "Examples:"
+            echo "  $0 -s e8337f4a stat    # Check azox server"
+            echo "  $0 stat                   # Check default server"
+            echo "  $0 run say hello world    # Run command"
+            echo "  $0 upload target/blah.jar"
+            echo "  $0 log 2026-05-01-1.log.gz"
+            exit 0
+            ;;
     esac
 done
 shift $((OPTIND -1))
@@ -44,7 +71,7 @@ shift $((OPTIND -1))
 CMD="$1"
 
 case "$CMD" in
-    list)
+    list|ls)
         RESPONSE=$(curl -s -H "Authorization: Bearer $API_KEY" \
             -H "Content-Type: application/json" \
             "$PANEL_URL/api/application/servers")
@@ -65,7 +92,7 @@ for server in data.get("data", []):
     print(f"{attributes.get('id', ''):2} | {attributes.get('name', ''):20} | {attributes.get('identifier', '')}")
 PY
         ;;
-    status)
+    status|stat|running)
         require_server
         curl -s -H "Authorization: Bearer $API_KEY" \
             -H "Content-Type: application/json" \
@@ -82,7 +109,7 @@ print(f\"State: {data['attributes']['current_state']}\")"
             "$PANEL_URL/api/client/servers/$SERVER/power"
         echo "$CMD server $SERVER"
         ;;
-    cmd)
+    cmd|run)
         require_server
         shift
         LOGS_ENABLED=1
@@ -272,26 +299,43 @@ for f in files[:5]:
     a=f['attributes']
     print(a['name'])"
         ;;
-    getlog)
+    getlog|log)
         require_server
-        curl -s -H "Authorization: Bearer $API_KEY" \
+        shift
+        LOGFILE="${1:-latest.log}"
+        TMPDIR=""
+
+        RESPONSE=$(curl -s -H "Authorization: Bearer $API_KEY" \
             -H "Accept: application/octet-stream" \
-            "$PANEL_URL/api/client/servers/$SERVER/files/download?file=/logs/latest.log" | python3 -c "
-import json,sys,urllib.request
-data=json.load(sys.stdin)
-url=data['attributes']['url']
-print(urllib.request.urlopen(url).read().decode('utf-8'))"
+            "$PANEL_URL/api/client/servers/$SERVER/files/download?file=/logs/$LOGFILE")
+
+        URL=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['attributes']['url'])")
+
+        if [[ "$LOGFILE" == *.gz ]]; then
+            TMPDIR=$(mktemp -d)
+            TMPFILE="$TMPDIR/log.gz"
+            curl -sL -o "$TMPFILE" "$URL"
+            gunzip -c "$TMPFILE"
+            rm -rf "$TMPDIR"
+        else
+            curl -s "$URL"
+        fi
         ;;
     download)
         require_server
         FILE="$2"
-        curl -s -H "Authorization: Bearer $API_KEY" \
+        if [ -z "$FILE" ]; then
+            echo "Error: specify file to download"
+            exit 1
+        fi
+
+        RESPONSE=$(curl -s -H "Authorization: Bearer $API_KEY" \
             -H "Accept: application/json" \
-            "$PANEL_URL/api/client/servers/$SERVER/files/download?file=$FILE" | python3 -c "
-import json,sys,urllib.request
-data=json.load(sys.stdin)
-url=data['attributes']['url']
-print(urllib.request.urlopen(url).read().decode('utf-8'))"
+            "$PANEL_URL/api/client/servers/$SERVER/files/download?file=$FILE")
+
+        URL=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['attributes']['url'])")
+        curl -sL -o "$(basename "$FILE")" "$URL"
+        echo "Downloaded: $FILE"
         ;;
     servers)
         echo "Available servers:"
@@ -299,29 +343,35 @@ print(urllib.request.urlopen(url).read().decode('utf-8'))"
             echo "  $s"
         done
         ;;
-    *)
+    -h|--help|help)
         echo "Usage: $0 [options] <command> [args]"
         echo ""
         echo "Options:"
         echo "  -s <uuid>  Select server (default: $DEFAULT_SERVER)"
+        echo "  -h, --help  Show this help"
         echo ""
         echo "Commands:"
         echo "  servers                - List available servers"
-        echo "  status                 - Show server status"
+        echo "  status, stat, running - Show server status"
         echo "  start                 - Start server"
         echo "  stop                  - Stop server"
         echo "  restart               - Restart server"
-        echo "  cmd <command>          - Run console command"
-        echo "  upload <file> [dir]    - Upload file (defaults to /plugins)"
-        echo "  upload <file> --dir d  - Upload file to directory d"
-        echo "  logs                  - List recent log files"
-        echo "  getlog                - Get latest.log contents"
+        echo "  cmd, run <cmd>        - Run console command"
+        echo "  upload <file> [dir]  - Upload file (defaults to /plugins)"
+        echo "  upload <file> --dir d - Upload file to directory d"
+        echo "  logs, log             - List recent log files"
+        echo "  getlog, log [file]   - Get log contents (default: latest.log)"
         echo ""
         echo "Examples:"
-        echo "  $0 -s e8337f4a status      # Check azox server"
-        echo "  $0 status                   # Check default server"
-        echo "  $0 cmd say hello world       # Run command"
-        echo "  $0 upload target/blah.jar /plugins"
-        echo "  $0 logs"
+        echo "  $0 -s e8337f4a status    # Check azox server"
+        echo "  $0 stat                   # Check default server"
+        echo "  $0 run say hello world    # Run command"
+        echo "  $0 upload target/blah.jar"
+        echo "  $0 log 2026-05-01-1.log.gz"
+        ;;
+    *)
+        echo "Unknown command: $CMD"
+        echo "Run '$0 --help' for usage"
+        exit 1
         ;;
 esac
