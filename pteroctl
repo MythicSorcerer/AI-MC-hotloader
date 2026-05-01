@@ -86,10 +86,19 @@ print(f\"State: {data['attributes']['current_state']}\")"
         require_server
         shift
         COMMAND="$*"
-        curl -s -H "Authorization: Bearer $API_KEY" \
+        RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $API_KEY" \
             -H "Content-Type: application/json" \
             -X POST -d "{\"command\":\"$COMMAND\"}" \
-            "$PANEL_URL/api/client/servers/$SERVER/command"
+            "$PANEL_URL/api/client/servers/$SERVER/command")
+        STATUS="${RESPONSE##*$'\n'}"
+        BODY="${RESPONSE%$'\n'*}"
+        if [ "$STATUS" != "204" ]; then
+            echo "Error: command failed (HTTP $STATUS)."
+            if [ -n "$BODY" ]; then
+                echo "Response: $BODY"
+            fi
+            exit 1
+        fi
         echo "Sent: $COMMAND"
         ;;
     upload)

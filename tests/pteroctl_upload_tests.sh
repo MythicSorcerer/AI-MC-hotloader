@@ -12,6 +12,14 @@ if [[ "$*" == *"/files/upload"* ]]; then
   echo '{"attributes":{"url":"http://upload.local"}}'
   exit 0
 fi
+if [[ "$*" == *"/resources"* ]]; then
+  echo "200"
+  exit 0
+fi
+if [[ "$*" == *"/command"* ]]; then
+  printf "\n204"
+  exit 0
+fi
 echo "OK"
 EOF
 chmod +x "$STUB_CURL"
@@ -57,6 +65,12 @@ assert_contains "/flags" "$OUTPUT"
 run_cmd "$REPO_ROOT/pteroctl" upload "$DUMMY_FILE" -d
 if [[ "$STATUS" -eq 0 ]]; then
   echo "Expected failure for missing -d arg"
+  failures=$((failures+1))
+fi
+
+run_cmd "$REPO_ROOT/pteroctl" cmd say test
+if [[ "$STATUS" -ne 0 ]]; then
+  echo "Expected cmd to succeed"
   failures=$((failures+1))
 fi
 
