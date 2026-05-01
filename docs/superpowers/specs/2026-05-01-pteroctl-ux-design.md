@@ -8,11 +8,12 @@ Make `pteroctl upload` intuitive for non-experts. The default path should be `/p
 - Keep script in bash.
 - Add a simple, explicit directory override flag.
 - Improve help/usage text for upload.
+- Consolidate to a single CLI by removing `pteroctl_fixed`.
 - Optional future work: add aliases.
 
 Out of scope:
 - Rewriting in Python.
-- Changing other commands or API behavior.
+- Changing other commands or API behavior beyond upload UX.
 
 ## Current Behavior
 - `upload` expects `upload <file> [dir]`.
@@ -51,6 +52,7 @@ Out of scope:
 - Keep existing API logic for upload URLs.
 - Adjust argument parsing in the `upload` case to accept flags without affecting global `getopts` usage.
 - Avoid changing behavior for any other subcommands.
+- Remove `pteroctl_fixed` and keep `.env` loading via `set -a; source .env; set +a` in `pteroctl`.
 
 ## Testing/Verification
 - Manual commands:
@@ -58,6 +60,8 @@ Out of scope:
   - `./pteroctl upload plugins/myplugin.jar /otherdir` (uses `/otherdir`)
   - `./pteroctl upload plugins/myplugin.jar --dir /otherdir` (uses `/otherdir`)
   - `./pteroctl upload plugins/myplugin.jar -d /otherdir` (uses `/otherdir`)
+- Repo hygiene:
+  - `pteroctl_fixed` no longer exists; docs refer to `pteroctl` only.
 
 ## Future Considerations
 - Add aliases like `up`, `put`, or `upload-plugin` if needed later.
